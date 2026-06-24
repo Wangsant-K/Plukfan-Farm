@@ -1,0 +1,10 @@
+# MicroPython / Python
+__pycache__/
+*.pyc
+
+# Claude Code local
+.claude/
+
+# OS
+Thumbs.db
+.DS_Store
