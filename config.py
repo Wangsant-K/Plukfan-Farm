@@ -9,6 +9,22 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# ค่าลับ (WiFi / MQTT credentials) — ดึงจาก secrets.py ที่ถูก gitignore
+# ถ้ายังไม่มี secrets.py ให้คัดลอกจาก secrets.example.py แล้วกรอกค่าจริง
+# -----------------------------------------------------------------------------
+try:
+    import secrets as _secrets
+except ImportError:
+    _secrets = None
+    print("[config] เตือน: ไม่พบ secrets.py — คัดลอกจาก secrets.example.py แล้วกรอกค่าจริง")
+
+
+def _secret(name, default):
+    # อ่านค่าจาก secrets.py ถ้ามี ไม่งั้น fallback เป็น placeholder (จะ connect ไม่ได้)
+    return getattr(_secrets, name, default) if _secrets is not None else default
+
+
+# -----------------------------------------------------------------------------
 # โซน + อุปกรณ์ (ใช้ประกอบ MQTT topic ตาม convention plukfan/<zone>/<device>/...)
 # -----------------------------------------------------------------------------
 ZONE      = "veggie"            # โซนของ node นี้ (ผักหลัก = กะเพรา)  *** ปรับได้ ***
@@ -39,24 +55,24 @@ RELAY_ACTIVE_LOW  = True
 FLOAT_OK_LEVEL    = 0           # *** ปรับ polarity ให้ตรงกับการต่อจริง ***
 
 # -----------------------------------------------------------------------------
-# WiFi  *** PLACEHOLDER: ต้องแก้ก่อนใช้จริง ***
+# WiFi  *** ค่าจริงอยู่ใน secrets.py ***
 # -----------------------------------------------------------------------------
-WIFI_SSID = "PLACEHOLDER_SSID"          # *** แก้เป็น SSID จริง ***
-WIFI_PASS = "PLACEHOLDER_PASSWORD"      # *** แก้เป็นรหัสผ่านจริง ***
+WIFI_SSID = _secret("WIFI_SSID", "PLACEHOLDER_SSID")
+WIFI_PASS = _secret("WIFI_PASS", "PLACEHOLDER_PASSWORD")
 
 # -----------------------------------------------------------------------------
-# MQTT  *** PLACEHOLDER บางส่วน — บังคับ TLS + username/password ***
+# MQTT  *** credentials อยู่ใน secrets.py — บังคับ TLS + username/password ***
 # -----------------------------------------------------------------------------
-MQTT_HOST     = "PLACEHOLDER_BROKER"    # *** แก้เป็น host/IP ของ broker ***
+MQTT_HOST     = _secret("MQTT_HOST", "PLACEHOLDER_BROKER")  # จาก secrets.py
 MQTT_PORT     = 8883                    # 8883 = MQTT over TLS
-MQTT_USER     = "PLACEHOLDER_USER"      # *** แก้เป็น username จริง ***
-MQTT_PASS     = "PLACEHOLDER_PASS"      # *** แก้เป็น password จริง ***
+MQTT_USER     = _secret("MQTT_USER", "PLACEHOLDER_USER")    # จาก secrets.py
+MQTT_PASS     = _secret("MQTT_PASS", "PLACEHOLDER_PASS")    # จาก secrets.py
 MQTT_USE_TLS  = True                    # บังคับ TLS (ห้ามปิดในงานจริง)
 MQTT_KEEPALIVE_S = 30                   # keepalive (วินาที) — ใช้คำนวณ LWT timeout ที่ broker
 
-# CA cert สำหรับ verify broker (self-signed ใส่ตรงนี้เป็น PEM bytes; None = ใช้ค่า default)
+# CA cert สำหรับ verify broker (self-signed ใส่ใน secrets.py เป็น PEM bytes; None = default)
 # *** แนะนำให้ตั้งค่า cert จริงเพื่อ verify ตัว broker ***
-MQTT_SSL_CA   = None
+MQTT_SSL_CA   = _secret("MQTT_SSL_CA", None)
 
 # connect timeout: ถ้า WiFi/MQTT connect (รวม TLS handshake) นานเกินนี้
 # = เน็ตมีปัญหาจริง → ปล่อยให้ Hardware WDT reset เป็นพฤติกรรมที่ถูก

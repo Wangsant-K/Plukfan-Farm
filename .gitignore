@@ -1,3 +1,6 @@
+# ค่าลับเฉพาะเครื่อง — ห้าม commit (ใช้ secrets.example.py เป็นแม่แบบ)
+secrets.py
+
 # MicroPython / Python
 __pycache__/
 *.pyc
