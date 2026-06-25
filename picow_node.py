@@ -20,7 +20,7 @@ import json
 import machine
 from machine import Pin, ADC, I2C, WDT, reset_cause
 import uasyncio as asyncio
-from utime import ticks_ms, ticks_diff, time, localtime
+from utime import ticks_ms, ticks_diff, ticks_add, time, localtime
 
 import config as cfg
 
@@ -276,7 +276,7 @@ def detect_rain(new_pct):
         jump = new_pct - st.prev_moisture
         if jump >= cfg.RAIN_JUMP_PCT:
             st.is_raining = True
-            st.rain_until = ticks_ms() + cfg.RAIN_HOLD_S * 1000
+            st.rain_until = ticks_add(ticks_ms(), cfg.RAIN_HOLD_S * 1000)
             print("[rain] ตรวจพบความชื้นเด้งขึ้น {:.1f}% → ตั้ง flag ฝนตก".format(jump))
     # หมดอายุ flag ฝน
     if st.is_raining and ticks_diff(now, st.rain_until) >= 0:
