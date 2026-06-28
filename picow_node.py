@@ -148,7 +148,8 @@ def t_sys(metric):
 
 AVAIL_TOPIC  = "{}/node/{}/availability".format(cfg.TOPIC_PREFIX, cfg.NODE_ID)
 SYSTEM_CMD   = "{}/{}/system/cmd".format(cfg.TOPIC_PREFIX, cfg.ZONE)
-PUMP_CMD     = t_cmd("pump")
+# หมายเหตุ: ไม่มี PUMP_CMD โดยตั้งใจ — pump ไม่รับคำสั่งผ่าน MQTT
+# (safe-by-structure: ปั๊มทำงานเฉพาะ state WATERING ที่ FSM คุมตัวเดียว)
 
 
 def _now_ts():
@@ -563,8 +564,10 @@ def on_message(topic, msg, retained):
 
 async def on_connect(c):
     # เรียกทุกครั้งที่ (re)connect สำเร็จ — resubscribe + ประกาศ online
+    # *** subscribe เฉพาะ topic ที่มี handler ใน on_message เท่านั้น ***
+    #     pump ไม่รับคำสั่งผ่าน MQTT โดยตั้งใจ (safe-by-structure):
+    #     ปั๊มทำงานได้เฉพาะ state WATERING ที่ FSM คุมตัวเดียว ไม่มี override
     await c.subscribe(SYSTEM_CMD, 1)
-    await c.subscribe(PUMP_CMD, 1)
     await c.publish(AVAIL_TOPIC, "online", retain=True, qos=1)
     print("[mqtt] connected + subscribed + online")
 
