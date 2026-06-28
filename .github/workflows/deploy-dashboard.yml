@@ -1,10 +1,8 @@
 # =============================================================================
 # Deploy แดชบอร์ดสาธิต (dashboard/) ขึ้น GitHub Pages อัตโนมัติ
 # -----------------------------------------------------------------------------
-# วิธีเปิดใช้ (ทำครั้งเดียว):
-#   Settings → Pages → Build and deployment → Source = "GitHub Actions"
+# เปิด Pages ให้อัตโนมัติผ่าน enablement: true (ไม่ต้องตั้งใน Settings เอง)
 # จากนั้นทุกครั้งที่ push แตะไฟล์ใน dashboard/ บน main จะ deploy ใหม่ให้เอง
-# หรือกดรันมือผ่านแท็บ Actions → Deploy dashboard to GitHub Pages → Run workflow
 # URL ที่ได้: https://<owner>.github.io/<repo>/
 # =============================================================================
 name: Deploy dashboard to GitHub Pages
@@ -40,6 +38,9 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # เปิด GitHub Pages ให้อัตโนมัติถ้ายังไม่ได้เปิด (ไม่ต้องไปกดใน Settings เอง)
+          enablement: true
 
       - name: Upload dashboard/ as Pages artifact
         uses: actions/upload-pages-artifact@v3
