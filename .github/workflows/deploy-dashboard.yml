@@ -1,8 +1,7 @@
 # =============================================================================
 # Deploy แดชบอร์ดสาธิต (dashboard/) ขึ้น GitHub Pages อัตโนมัติ
 # -----------------------------------------------------------------------------
-# configure-pages (enablement: true) จะเปิด Pages ให้เองผ่าน API
-# *** ไม่ใส่ environment gate เพื่อให้ job เริ่มได้แม้ Pages ยังไม่ถูกตั้งใน Settings ***
+# ต้องตั้ง Settings → Pages → Source = "GitHub Actions" ก่อน (ทำครั้งเดียว)
 # จากนั้นทุกครั้งที่ push แตะไฟล์ใน dashboard/ บน main จะ deploy ใหม่ให้เอง
 # URL ที่ได้: https://<owner>.github.io/<repo>/
 # =============================================================================
@@ -28,14 +27,15 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Pages (เปิด Pages อัตโนมัติถ้ายังไม่ได้เปิด)
+      - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload dashboard/ as Pages artifact
         uses: actions/upload-pages-artifact@v3
