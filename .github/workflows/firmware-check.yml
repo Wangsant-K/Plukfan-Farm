@@ -1,0 +1,46 @@
+# =============================================================================
+# CI ตรวจไฟล์ Python ของเฟิร์มแวร์/สคริปต์ — จับ syntax error ก่อน merge
+# -----------------------------------------------------------------------------
+# รันตอนเปิด/อัปเดต PR เข้า main และตอน push เข้า main โดยตรง
+# ใช้ py_compile (ไม่รันโค้ด แค่ตรวจว่า parse/compile ผ่าน) — เหมาะกับโค้ด
+# MicroPython ที่ import โมดูลฮาร์ดแวร์ (machine, uasyncio) ที่ไม่มีบน CI runner
+# =============================================================================
+name: Firmware syntax check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.py"
+      - ".github/workflows/firmware-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "**.py"
+      - ".github/workflows/firmware-check.yml"
+
+jobs:
+  py-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Compile-check ไฟล์ Python ทุกตัว
+        run: |
+          # รวบรวมไฟล์ .py ทั้ง repo แล้ว py_compile ทีละไฟล์
+          # ล้มทันทีถ้ามีไฟล์ใด syntax error (exit code != 0)
+          mapfile -t files < <(git ls-files '*.py')
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "ไม่พบไฟล์ .py — ข้าม"
+            exit 0
+          fi
+          printf 'กำลังตรวจ %d ไฟล์:\n' "${#files[@]}"
+          printf '  %s\n' "${files[@]}"
+          python -m py_compile "${files[@]}"
+          echo "✅ ทุกไฟล์ compile ผ่าน"
