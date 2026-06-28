@@ -1,0 +1,1 @@
+plukfan dashboard — deployed via GitHub Actions 2026-06-28
