@@ -1,0 +1,375 @@
+/* =============================================================================
+   สวนปลูกฝัน — Smart Farm Dashboard (mock)
+   ออกแบบ mobile-first + รองรับ iPad 9 (10.2") และ iPhone 13 โดยเฉพาะ
+   - ใช้ safe-area-inset กับ notch / home indicator ของ iPhone 13
+   - touch target >= 44px ตาม Apple HIG
+   - ปิด hover-only, ใช้ :active feedback แทน
+   ========================================================================== */
+
+:root {
+  --bg:        #0c1611;
+  --bg-2:      #0f1f17;
+  --card:      #15291e;
+  --card-2:    #1b3327;
+  --line:      #244536;
+  --text:      #e8f3ec;
+  --text-dim:  #8fae9d;
+  --text-mut:  #5f7d6d;
+
+  --green:     #38d27a;
+  --green-soft:#1f6b45;
+  --blue:      #4fb6f0;
+  --amber:     #f5b53d;
+  --red:       #f06464;
+
+  --radius:    18px;
+  --radius-sm: 12px;
+  --gap:       14px;
+
+  /* safe-area shorthands (iPhone 13 notch / home indicator) */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+
+  font-size: 16px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+               "Noto Sans Thai", "Sukhumvit Set", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;        /* กัน iOS ขยาย font เองตอนหมุนจอ */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 80% -10%, #16382660 0%, transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, #10302040 0%, transparent 55%),
+    var(--bg);
+}
+
+.app {
+  min-height: 100%;
+  /* เผื่อ safe-area ทุกด้าน — เนื้อหาไม่ถูก notch/มุมจอบัง */
+  padding:
+    calc(var(--sat))
+    var(--sar)
+    var(--sab)
+    var(--sal);
+}
+
+/* ───────────────────────── Top bar ───────────────────────── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(var(--sat) + 12px) 18px 12px;
+  margin-top: calc(-1 * var(--sat));      /* ดึง blur ขึ้นไปคลุมพื้นที่ notch */
+  background: rgba(12, 22, 17, 0.72);
+  backdrop-filter: saturate(140%) blur(14px);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand__logo { font-size: 28px; line-height: 1; }
+.brand__title { font-size: 19px; font-weight: 700; letter-spacing: .2px; }
+.brand__sub { font-size: 12px; color: var(--text-mut); letter-spacing: .4px; }
+
+.topbar__right { display: flex; align-items: center; gap: 10px; }
+
+.conn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.conn__dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--text-mut);
+  box-shadow: 0 0 0 0 transparent;
+  transition: background .3s, box-shadow .3s;
+}
+.conn--online  .conn__dot { background: var(--green); box-shadow: 0 0 10px 1px #38d27a88; }
+.conn--offline .conn__dot { background: var(--red);   box-shadow: 0 0 10px 1px #f0646488; }
+
+.icon-btn {
+  width: 44px; height: 44px;              /* >= 44px touch target */
+  display: grid; place-items: center;
+  font-size: 18px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform .08s, background .2s;
+}
+.icon-btn:active { transform: scale(.92); background: var(--card-2); }
+
+/* ───────────────────────── Zone tabs ───────────────────────── */
+.zones {
+  display: flex;
+  gap: 10px;
+  padding: 14px 18px 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.zones::-webkit-scrollbar { display: none; }
+
+.zone-tab {
+  flex: 0 0 auto;
+  padding: 11px 18px;
+  min-height: 44px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14.5px; font-weight: 600;
+  color: var(--text-dim);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform .08s, background .2s, color .2s, border-color .2s;
+}
+.zone-tab:active { transform: scale(.96); }
+.zone-tab.is-active {
+  color: #06160d;
+  background: linear-gradient(180deg, #4fe08c, #2bbd6c);
+  border-color: transparent;
+}
+.zone-tab__dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .85; }
+
+/* ───────────────────────── Content layout ───────────────────────── */
+.content {
+  padding: 14px 18px calc(var(--sab) + 28px);
+  display: grid;
+  gap: var(--gap);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.card {
+  background: linear-gradient(180deg, var(--card), var(--bg-2));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.card__eyebrow {
+  font-size: 12px; letter-spacing: .6px; text-transform: uppercase;
+  color: var(--text-mut); font-weight: 700; margin-bottom: 10px;
+}
+
+/* ───────────────────────── Hero ───────────────────────── */
+.hero__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.hero__state { font-size: 30px; font-weight: 800; letter-spacing: .3px; margin-top: 2px; }
+.hero__desc  { font-size: 14px; color: var(--text-dim); margin-top: 4px; line-height: 1.45; }
+.hero__badge { font-size: 16px; }
+
+.hero__pump {
+  display: flex; align-items: center; gap: 16px;
+  margin-top: 18px; padding-top: 18px;
+  border-top: 1px dashed var(--line);
+}
+.pump-viz {
+  width: 64px; height: 64px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  font-size: 28px;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  transition: background .3s, box-shadow .3s, transform .3s;
+}
+.pump-viz.is-on {
+  background: radial-gradient(circle at 50% 40%, #2c7bd6, #1c4f8f);
+  box-shadow: 0 0 0 4px #2c7bd633, 0 0 28px 4px #2c7bd655;
+  animation: pump-pulse 1.4s ease-in-out infinite;
+}
+@keyframes pump-pulse {
+  0%,100% { transform: scale(1); }
+  50%     { transform: scale(1.06); }
+}
+.pump-info__label { font-size: 13px; color: var(--text-mut); }
+.pump-info__value { font-size: 22px; font-weight: 700; margin-top: 2px; }
+.pump-info__meta  { font-size: 12.5px; color: var(--text-dim); margin-top: 3px; }
+
+/* state color theming on hero card */
+.hero[data-state="WATERING"] { border-color: #2c7bd6aa; }
+.hero[data-state="ERROR"]    { border-color: #f06464aa; }
+.hero[data-state="COOLDOWN"] { border-color: #f5b53d77; }
+
+/* ───────────────────────── Buttons ───────────────────────── */
+.btn {
+  width: 100%;
+  margin-top: 16px;
+  min-height: 50px;
+  font-size: 16px; font-weight: 700;
+  border: none; border-radius: 14px;
+  cursor: pointer;
+  transition: transform .08s, filter .2s;
+}
+.btn:active { transform: scale(.98); filter: brightness(.92); }
+.btn--danger { background: linear-gradient(180deg, #ff7a7a, #e24d4d); color: #2a0808; }
+
+/* ───────────────────────── Moisture gauge ───────────────────────── */
+.moist { display: flex; flex-direction: column; align-items: center; }
+.moist .card__eyebrow { align-self: flex-start; }
+.gauge { position: relative; width: 100%; max-width: 320px; }
+.gauge__svg { width: 100%; height: auto; display: block; overflow: visible; }
+.gauge__track, .gauge__band, .gauge__fill {
+  fill: none;
+  stroke-width: 16;
+  stroke-linecap: round;
+}
+.gauge__track { stroke: #1c3527; }
+.gauge__band  { stroke-width: 16; opacity: .28; }
+.gauge__band--low  { stroke: var(--amber); }
+.gauge__band--high { stroke: var(--green); }
+.gauge__fill {
+  stroke: var(--green);
+  transition: stroke-dashoffset .8s cubic-bezier(.4,0,.2,1), stroke .4s;
+}
+.gauge__center {
+  position: absolute; left: 0; right: 0; bottom: 6%;
+  text-align: center;
+}
+.gauge__value { font-size: 46px; font-weight: 800; letter-spacing: -1px; }
+.gauge__unit  { font-size: 18px; color: var(--text-dim); margin-left: 3px; }
+
+.moist__legend {
+  display: flex; gap: 22px; margin-top: 6px;
+  font-size: 13px; color: var(--text-dim);
+}
+.moist__legend b { color: var(--text); }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.dot--low  { background: var(--amber); }
+.dot--high { background: var(--green); }
+
+/* ───────────────────────── Sensor grid ───────────────────────── */
+.grid { grid-template-columns: 1fr 1fr; display: grid; gap: var(--gap); }
+.stat { display: flex; flex-direction: column; gap: 6px; padding: 16px; }
+.stat__icon  { font-size: 22px; }
+.stat__label { font-size: 13px; color: var(--text-mut); }
+.stat__value { font-size: 15px; color: var(--text-dim); }
+.stat__value b { font-size: 26px; font-weight: 800; color: var(--text); }
+.stat__value i { font-style: normal; font-size: 15px; color: var(--text-dim); margin-left: 3px; }
+.stat.is-stale b { color: var(--text-mut); }
+
+/* ───────────────────────── Guards ───────────────────────── */
+.guards__list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.guard {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  list-style: none;
+}
+.guard__icon { font-size: 18px; }
+.guard__name { font-size: 13.5px; color: var(--text-dim); flex: 1; }
+.guard__val  { font-size: 13.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.guard__val.ok   { color: #06160d; background: var(--green); }
+.guard__val.warn { color: #2a1a00; background: var(--amber); }
+.guard__val.bad  { color: #2a0808; background: var(--red); }
+.guard__val.idle { color: var(--text-dim); background: #ffffff14; }
+
+/* ───────────────────────── Diagnostics ───────────────────────── */
+.diag__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.diag__item { display: flex; flex-direction: column; gap: 3px; }
+.diag__item span { font-size: 12px; color: var(--text-mut); }
+.diag__item b { font-size: 16px; font-weight: 700; }
+.diag__err {
+  margin-top: 14px; padding: 11px 14px;
+  font-size: 13px; color: #ffd9d9;
+  background: #f0646422; border: 1px solid #f0646455;
+  border-radius: var(--radius-sm);
+}
+
+.foot { text-align: center; color: var(--text-mut); font-size: 12px; padding: 8px 0 4px; }
+
+/* ───────────────────────── Toast ───────────────────────── */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--sab) + 22px);
+  transform: translateX(-50%) translateY(12px);
+  max-width: min(92vw, 420px);
+  padding: 13px 20px;
+  background: #0c1c14;
+  border: 1px solid var(--green-soft);
+  border-radius: 14px;
+  color: var(--text);
+  font-size: 14px;
+  box-shadow: 0 12px 36px #000a;
+  opacity: 0;
+  transition: opacity .25s, transform .25s;
+  z-index: 50;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* =============================================================================
+   RESPONSIVE
+   iPhone 13  : 390 × 844 pt (portrait) / 844 × 390 (landscape)
+   iPad 9     : 810 × 1080 pt (portrait) / 1080 × 810 (landscape)
+   ========================================================================== */
+
+/* ── iPad 9 และจอกว้างขึ้น: ใช้ multi-column dashboard ── */
+@media (min-width: 740px) {
+  :root { --gap: 18px; }
+  .content {
+    grid-template-columns: repeat(2, 1fr);
+    align-items: start;
+    padding: 20px 26px calc(var(--sab) + 36px);
+  }
+  .hero { grid-column: 1 / -1; }
+  .grid { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); }
+  .brand__title { font-size: 22px; }
+  .hero__state  { font-size: 34px; }
+  .gauge__value { font-size: 52px; }
+}
+
+/* iPad 9 landscape & ใหญ่กว่า: 3 คอลัมน์ ใช้พื้นที่จอแนวนอนเต็มที่ */
+@media (min-width: 1040px) {
+  .content { grid-template-columns: 1.1fr 1fr 1fr; }
+  .hero  { grid-column: 1 / 2; grid-row: 1 / 3; }
+  .moist { grid-column: 2 / 3; }
+  .grid  { grid-column: 3 / 4; grid-template-columns: 1fr 1fr; }
+  .guards, .diag { grid-column: span 1; }
+}
+
+/* ── iPhone 13 landscape (จอเตี้ย): ลดความสูง element, 2 คอลัมน์ ── */
+@media (max-height: 480px) and (orientation: landscape) {
+  .content { grid-template-columns: 1fr 1fr; padding-top: 10px; }
+  .hero { grid-column: 1 / -1; }
+  .hero__state { font-size: 24px; }
+  .topbar { padding-top: calc(var(--sat) + 8px); padding-bottom: 8px; }
+  .gauge { max-width: 240px; }
+}
+
+/* ── จอเล็กมาก (iPhone SE / iPhone 13 mini ขอบแคบ): กันล้น ── */
+@media (max-width: 360px) {
+  .content { padding-left: 14px; padding-right: 14px; }
+  .brand__title { font-size: 17px; }
+  .hero__state { font-size: 26px; }
+  .conn__label { display: none; }   /* เหลือแต่จุดสถานะ ประหยัดพื้นที่ */
+}
+
+/* เคารพ reduce-motion ของผู้ใช้ iOS */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
