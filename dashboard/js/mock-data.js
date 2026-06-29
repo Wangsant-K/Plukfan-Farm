@@ -17,7 +17,7 @@ const PlukfanMock = (() => {
   const ZONES = {
     veggie: { id: "veggie", label: "ผักสวนครัว", crop: "กะเพรา", node: "picow-01",
               low: 60, high: 70 },
-    banana: { id: "banana", label: "กล้วย",       crop: "กล้วยน้ำว้า", node: "picow-02",
+    banana: { id: "banana", label: "ไม้ผล",       crop: "กล้วยน้ำว้า", node: "picow-02",
               low: 60, high: 75 },
   };
 

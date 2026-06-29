@@ -47,7 +47,7 @@
       btn.className = "zone-tab" + (z.id === activeZone ? " is-active" : "");
       btn.type = "button";
       btn.dataset.zone = z.id;
-      btn.innerHTML = `<span class="zone-tab__dot"></span>${z.label} · ${z.crop}`;
+      btn.innerHTML = `<span class="zone-tab__dot"></span>${z.label}`;
       btn.addEventListener("click", () => {
         activeZone = z.id;
         document.querySelectorAll(".zone-tab").forEach((t) =>
