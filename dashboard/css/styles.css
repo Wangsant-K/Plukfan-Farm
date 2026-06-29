@@ -272,6 +272,16 @@ body {
 .stat__value b { font-size: 26px; font-weight: 800; color: var(--text); }
 .stat__value i { font-style: normal; font-size: 15px; color: var(--text-dim); margin-left: 3px; }
 .stat.is-stale b { color: var(--text-mut); }
+/* ป้ายกรด–ด่างของ pH (specificity สูงกว่า .stat__value i เพื่อ override สี) */
+.stat .ph-tag {
+  display: block; margin-left: 0; margin-top: 3px;
+  font-size: 13px; font-weight: 700; font-style: normal;
+}
+.stat .ph-tag.acid-strong { color: var(--red); }
+.stat .ph-tag.acid        { color: var(--amber); }
+.stat .ph-tag.neutral     { color: var(--green); }
+.stat .ph-tag.base        { color: var(--blue); }
+.stat .ph-tag.base-strong { color: #b07ef0; }
 
 /* ───────────────────────── Guards ───────────────────────── */
 .guards__list { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }

@@ -21,6 +21,23 @@
 
   let activeZone = "veggie";
 
+  // ── การแปลงค่า pH ──────────────────────────────────────────────
+  // firmware ส่ง pH เป็นค่าดิบ 12-bit (0–4095) แล้ว "map ที่ backend" (ดู picow_node.py)
+  // ที่นี่ใช้ calibration เชิงสาธิตแบบเชิงเส้น: ค่าดิบเต็มสเกล → pH 0–14
+  // (ของจริงควร calibrate 2 จุดด้วยน้ำยาบัฟเฟอร์ pH 4.0 / 7.0)
+  const PH_ADC_MAX = 4095;
+  function rawToPh(raw) {
+    return Math.max(0, Math.min(14, (raw / PH_ADC_MAX) * 14));
+  }
+  // ป้ายบอกความเป็นกรด–ด่าง (อิงเกณฑ์ดินเพาะปลูกทั่วไป)
+  function phLabel(ph) {
+    if (ph < 5.5)  return { text: "กรดจัด",   cls: "acid-strong" };
+    if (ph < 6.5)  return { text: "กรดอ่อน",  cls: "acid" };
+    if (ph <= 7.3) return { text: "เป็นกลาง", cls: "neutral" };
+    if (ph <= 8.3) return { text: "ด่างอ่อน", cls: "base" };
+    return { text: "ด่างจัด", cls: "base-strong" };
+  }
+
   // ───────────────────────── Zone tabs ─────────────────────────
   function buildZoneTabs() {
     const wrap = $("zoneTabs");
@@ -126,7 +143,7 @@
     // sensor stats (เซนเซอร์ fault → แสดง stale)
     setStat("vTemp", s.sensorFault ? null : s.temp, 1, "statTemp");
     setStat("vHumid", s.sensorFault ? null : s.humid, 0, "statHumid");
-    setStat("vPh", s.sensorFault ? null : s.ph, 0, "statPh");
+    renderPh(s.sensorFault ? null : s.ph);
     setStat("vEc", s.sensorFault ? null : s.ec, 0, "statEc");
 
     // guards
@@ -196,6 +213,26 @@
     const el = $(id);
     el.textContent = text;
     el.className = "gw-stat__val " + cls;
+  }
+
+  // pH: แปลงค่าดิบ → pH (0–14) + ป้ายกรด/ด่าง พร้อมสี
+  function renderPh(raw) {
+    const card = $("statPh");
+    const b = $("vPh");
+    const tag = $("vPhTag");
+    if (raw == null) {
+      b.textContent = "--";
+      tag.textContent = "";
+      tag.className = "ph-tag";
+      card.classList.add("is-stale");
+      return;
+    }
+    card.classList.remove("is-stale");
+    const ph = rawToPh(raw);
+    b.textContent = ph.toFixed(1);
+    const info = phLabel(ph);
+    tag.textContent = info.text;
+    tag.className = "ph-tag " + info.cls;
   }
 
   function setStat(id, val, digits, cardId) {
