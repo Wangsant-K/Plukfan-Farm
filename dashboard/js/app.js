@@ -287,6 +287,11 @@
       PlukfanMock.triggerRain(activeZone);
       toast("จำลอง: ฝนตก → งดรดน้ำชั่วคราว");
     });
+    $("gSensor").addEventListener("click", () => {
+      const fault = PlukfanMock.toggleSensorFault(activeZone);
+      toast(fault ? "จำลอง: เซนเซอร์ผิดปกติ → ระบบจะเข้า ERROR"
+                  : "จำลอง: เซนเซอร์กลับมาปกติแล้ว", !fault);
+    });
 
     // ── คำสั่ง gateway (สาธิตการตอบกลับของ cmd) ──
     $("gwPing").addEventListener("click", () => {

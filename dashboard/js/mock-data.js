@@ -289,6 +289,11 @@ const PlukfanMock = (() => {
       const s = states[id]; s.floatOk = !s.floatOk; emit();
       return s.floatOk;
     },
+    // จำลองเซนเซอร์ผิดปกติ → ระบบเข้า ERROR (sensor_fault); สลับกลับ = หายเอง → IDLE
+    toggleSensorFault(id) {
+      const s = states[id]; s.sensorFault = !s.sensorFault; emit();
+      return s.sensorFault;   // true = กำลังจำลองว่าผิดปกติ
+    },
     triggerRain(id) {
       const s = states[id];
       s.isRaining = true;
