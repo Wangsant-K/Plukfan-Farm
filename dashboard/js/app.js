@@ -146,6 +146,56 @@
     const err = $("lastErr");
     if (s.lastError) { err.hidden = false; err.textContent = "⚠️ " + s.lastError; }
     else { err.hidden = true; }
+
+    renderGateway();
+  }
+
+  // ───────────────────────── Gateway render ─────────────────────────
+  function renderGateway() {
+    const g = PlukfanMock.getGateway();
+    const GW = PlukfanMock.GW;
+
+    $("gwId").textContent = g.id;
+
+    const badge = $("gwBadge");
+    const card = $("gatewayCard");
+    if (g.rebooting) {
+      badge.textContent = "กำลังบูต…";
+      badge.className = "gw-badge gw-badge--boot";
+      card.dataset.state = "boot";
+    } else if (g.online) {
+      badge.textContent = "ออนไลน์";
+      badge.className = "gw-badge gw-badge--online";
+      card.dataset.state = "online";
+    } else {
+      badge.textContent = "ออฟไลน์";
+      badge.className = "gw-badge gw-badge--offline";
+      card.dataset.state = "offline";
+    }
+
+    $("gwUptime").textContent  = fmtUptime(g.uptimeS);
+    $("gwMem").textContent     = (g.freemem / 1024).toFixed(0) + " KB";
+    $("gwRssi").textContent    = g.rssi + " dBm";
+    $("gwTemp").textContent    = g.temp.toFixed(1) + " °C";
+    $("gwReset").textContent   = g.lastReset;
+    $("gwUpdated").textContent = fmtAgo(g.updatedMs);
+
+    // Dual watchdog — HW เลี้ยงปกติ, SW เทียบ heartbeat กับเกณฑ์ staleness
+    const live = g.online && !g.rebooting;
+    setGwStat("gwWdtHwVal", live ? `เลี้ยงปกติ (${GW.hwWdtMs / 1000}s)` : "—", live ? "ok" : "idle");
+    const mqttFresh = live && g.hbMqttMs < GW.staleMqtt;
+    const healthFresh = live && g.hbHealthMs < GW.staleHealth;
+    setGwStat("gwWdtMqttVal", live ? `สด · ${g.hbMqttMs}ms` : "—", mqttFresh ? "ok" : (live ? "bad" : "idle"));
+    setGwStat("gwWdtHealthVal", live ? `สด · ${g.hbHealthMs}ms` : "—", healthFresh ? "ok" : (live ? "bad" : "idle"));
+
+    // กล้อง = stub
+    setGwStat("gwCamVal", g.cameraReady ? "พร้อม" : "stub (ยังไม่รองรับ)", g.cameraReady ? "ok" : "idle");
+  }
+
+  function setGwStat(id, text, cls) {
+    const el = $(id);
+    el.textContent = text;
+    el.className = "gw-stat__val " + cls;
   }
 
   function setStat(id, val, digits, cardId) {
@@ -200,6 +250,24 @@
       PlukfanMock.triggerRain(activeZone);
       toast("จำลอง: ฝนตก → งดรดน้ำชั่วคราว");
     });
+
+    // ── คำสั่ง gateway (สาธิตการตอบกลับของ cmd) ──
+    $("gwPing").addEventListener("click", () => {
+      const r = PlukfanMock.gatewayCmd("ping");
+      toast(r.msg, r.ok);
+    });
+    $("gwCapture").addEventListener("click", () => {
+      const r = PlukfanMock.gatewayCmd("capture");
+      toast(r.msg, r.ok);
+      const err = $("gwErr");
+      err.hidden = false;
+      err.textContent = "ℹ️ " + r.msg;
+    });
+    $("gwReboot").addEventListener("click", () => {
+      const r = PlukfanMock.gatewayCmd("reboot");
+      toast(r.msg, r.ok);
+      renderGateway();
+    });
   }
 
   // ───────────────────────── Boot ─────────────────────────
@@ -212,6 +280,8 @@
     setInterval(() => {
       const s = PlukfanMock.getState(activeZone);
       if (s) $("dUpdated").textContent = fmtAgo(s.updatedMs);
+      const g = PlukfanMock.getGateway();
+      if (g) $("gwUpdated").textContent = fmtAgo(g.updatedMs);
     }, 1000);
   }
 
