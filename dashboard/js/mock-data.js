@@ -29,7 +29,7 @@ const PlukfanMock = (() => {
       moisture: 64 + Math.random() * 6,   // %
       temp: 30 + Math.random() * 3,
       humid: 62 + Math.random() * 8,
-      ph: 1850 + ((Math.random() * 120) | 0),   // ค่าดิบ 12-bit
+      ph: 1700 + ((Math.random() * 450) | 0),   // ค่าดิบ 12-bit (map เป็น pH ที่ฝั่งแสดงผล)
       ec: 1200 + ((Math.random() * 200) | 0),
       pumpOn: false,
       floatOk: true,         // น้ำในถังพอ
@@ -118,6 +118,9 @@ const PlukfanMock = (() => {
     s.rssi = Math.max(-86, Math.min(-44, s.rssi + ((Math.random() * 4 - 2) | 0)));
     s.temp += Math.random() * 0.4 - 0.2;
     s.humid = Math.max(40, Math.min(95, s.humid + (Math.random() * 2 - 1)));
+    // pH/EC (ค่าดิบ) ขยับช้า ๆ ให้ดูมีชีวิต — การ map เป็น pH ทำที่ฝั่งแสดงผล
+    s.ph = Math.max(1400, Math.min(2400, s.ph + (Math.random() * 30 - 15)));
+    s.ec = Math.max(800, Math.min(1800, s.ec + (Math.random() * 40 - 20)));
 
     // เน็ตขึ้นหลัง 1 รอบแรก (เลียนแบบ connect phase)
     if (!s.mqttConnected) { s.mqttConnected = true; }
@@ -285,6 +288,11 @@ const PlukfanMock = (() => {
     toggleTankEmpty(id) {
       const s = states[id]; s.floatOk = !s.floatOk; emit();
       return s.floatOk;
+    },
+    // จำลองเซนเซอร์ผิดปกติ → ระบบเข้า ERROR (sensor_fault); สลับกลับ = หายเอง → IDLE
+    toggleSensorFault(id) {
+      const s = states[id]; s.sensorFault = !s.sensorFault; emit();
+      return s.sensorFault;   // true = กำลังจำลองว่าผิดปกติ
     },
     triggerRain(id) {
       const s = states[id];

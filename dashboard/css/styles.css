@@ -272,9 +272,20 @@ body {
 .stat__value b { font-size: 26px; font-weight: 800; color: var(--text); }
 .stat__value i { font-style: normal; font-size: 15px; color: var(--text-dim); margin-left: 3px; }
 .stat.is-stale b { color: var(--text-mut); }
+/* ป้ายกรด–ด่างของ pH (specificity สูงกว่า .stat__value i เพื่อ override สี) */
+.stat .ph-tag {
+  display: block; margin-left: 0; margin-top: 3px;
+  font-size: 13px; font-weight: 700; font-style: normal;
+}
+.stat .ph-tag.acid-strong { color: var(--red); }
+.stat .ph-tag.acid        { color: var(--amber); }
+.stat .ph-tag.neutral     { color: var(--green); }
+.stat .ph-tag.base        { color: var(--blue); }
+.stat .ph-tag.base-strong { color: #b07ef0; }
 
 /* ───────────────────────── Guards ───────────────────────── */
-.guards__list { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+/* แต่ละรายการ = แถวแนวนอนเต็มความกว้าง (ไอคอน + ชื่อ + ป้ายสถานะ บรรทัดเดียว) */
+.guards__list { display: grid; grid-template-columns: 1fr; gap: 10px; }
 .guard {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 14px;
@@ -284,8 +295,8 @@ body {
   list-style: none;
 }
 .guard__icon { font-size: 18px; flex: 0 0 auto; }
-.guard__name { font-size: 13.5px; color: var(--text-dim); flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.guard__val  { font-size: 13.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.guard__name { font-size: 13.5px; color: var(--text-dim); flex: 1; min-width: 0; white-space: nowrap; }
+.guard__val  { flex: 0 0 auto; font-size: 13.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
 .guard__val.ok   { color: #06160d; background: var(--green); }
 .guard__val.warn { color: #2a1a00; background: var(--amber); }
 .guard__val.bad  { color: #2a0808; background: var(--red); }
