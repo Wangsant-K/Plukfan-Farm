@@ -49,6 +49,22 @@ iPhone 13 (390×844 / 844×390) และ iPad 9 (810×1080 / 1080×810)
 - **ปุ่ม Manual Reset** โผล่เฉพาะตอน ERROR (จำลองคำสั่ง `system/cmd {"action":"reset"}`)
 - เลือกดูได้หลายโซน (veggie/banana) ผ่านแท็บด้านบน
 
+### การ์ด Gateway (ESP32-S3 · `esp32s3-01`)
+
+gateway เป็น **คนละชนิด node** กับ Pico W — ไม่มีระบบรดน้ำ/เซนเซอร์ดิน แต่เป็น backbone
+ที่ต่อ MQTT over TLS การ์ดนี้สะท้อน `esp32s3_gateway.py` / `gateway_config.py`:
+
+- **Availability**: online / offline (retained + LWT) แสดงเป็น badge มุมขวา
+- **Diagnostics** (`sys/{uptime,freemem,rssi,temp}`): uptime, free RAM, WiFi RSSI, อุณหภูมิชิป
+- **Dual watchdog**:
+  - Hardware WDT (`HW_WDT_MS` = 8000 ms) — สถานะ "เลี้ยงปกติ"
+  - Software WDT ราย task (`mqtt` เกณฑ์ 5000 ms / `health` เกณฑ์ 3000 ms) — แสดงอายุ heartbeat ว่ายัง "สด"
+- **กล้อง**: เป็น stub (ยังไม่รองรับ) ตรงกับ `capture_stub()` ใน firmware
+- **ปุ่มคำสั่งสาธิต** (จำลอง `plukfan/node/esp32s3-01/cmd`):
+  - **Ping** → ตอบ `pong` พร้อม RTT จำลอง
+  - **Capture** → ตอบ `not_implemented` (กล้องยังเป็น stub)
+  - **Reboot** → จำลอง `machine.reset()` → gateway บูตใหม่ (uptime กลับเป็น 0, reset = `software_reset`)
+
 ### ลองเล่นในโหมดสาธิต
 - แตะการ์ด **"น้ำในถัง"** เพื่อจำลองถังน้ำหมด → ระบบเข้า ERROR → กด Manual Reset
 - แตะการ์ด **"ตรวจพบฝน"** เพื่อจำลองฝนตก → ระบบงดรดน้ำชั่วคราว

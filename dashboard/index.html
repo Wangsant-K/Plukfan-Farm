@@ -160,6 +160,61 @@
         <p class="diag__err" id="lastErr" hidden></p>
       </section>
 
+      <!-- ───────── Gateway (ESP32-S3) ───────── -->
+      <section class="card gateway" id="gatewayCard">
+        <div class="gateway__head">
+          <div>
+            <p class="card__eyebrow">Gateway (ESP32-S3)</p>
+            <h2 class="gateway__id" id="gwId">—</h2>
+            <p class="gateway__sub">backbone ประจำสวน · MQTT over TLS</p>
+          </div>
+          <span class="gw-badge" id="gwBadge">—</span>
+        </div>
+
+        <!-- diagnostics ของ gateway (sys/{uptime,freemem,rssi,temp}) -->
+        <div class="diag__grid gateway__diag">
+          <div class="diag__item"><span>Uptime</span><b id="gwUptime">—</b></div>
+          <div class="diag__item"><span>Free RAM</span><b id="gwMem">—</b></div>
+          <div class="diag__item"><span>WiFi RSSI</span><b id="gwRssi">—</b></div>
+          <div class="diag__item"><span>อุณหภูมิชิป</span><b id="gwTemp">—</b></div>
+          <div class="diag__item"><span>Reset ล่าสุด</span><b id="gwReset">—</b></div>
+          <div class="diag__item"><span>อัปเดตเมื่อ</span><b id="gwUpdated">—</b></div>
+        </div>
+
+        <!-- Dual watchdog + กล้อง -->
+        <ul class="gw-status">
+          <li class="gw-stat" id="gwWdtHw">
+            <span class="gw-stat__icon">🛡️</span>
+            <span class="gw-stat__name">Hardware WDT</span>
+            <span class="gw-stat__val" id="gwWdtHwVal">—</span>
+          </li>
+          <li class="gw-stat" id="gwWdtMqtt">
+            <span class="gw-stat__icon">📡</span>
+            <span class="gw-stat__name">SW WDT · mqtt</span>
+            <span class="gw-stat__val" id="gwWdtMqttVal">—</span>
+          </li>
+          <li class="gw-stat" id="gwWdtHealth">
+            <span class="gw-stat__icon">❤️</span>
+            <span class="gw-stat__name">SW WDT · health</span>
+            <span class="gw-stat__val" id="gwWdtHealthVal">—</span>
+          </li>
+          <li class="gw-stat" id="gwCam">
+            <span class="gw-stat__icon">📷</span>
+            <span class="gw-stat__name">กล้อง</span>
+            <span class="gw-stat__val" id="gwCamVal">—</span>
+          </li>
+        </ul>
+
+        <!-- ปุ่มคำสั่งสาธิต (plukfan/node/esp32s3-01/cmd) -->
+        <div class="gw-cmds">
+          <button class="gw-cmd" id="gwPing" type="button">📨 Ping</button>
+          <button class="gw-cmd" id="gwCapture" type="button">📷 Capture</button>
+          <button class="gw-cmd gw-cmd--warn" id="gwReboot" type="button">↻ Reboot</button>
+        </div>
+
+        <p class="diag__err" id="gwErr" hidden></p>
+      </section>
+
       <footer class="foot">
         <p>โหมดสาธิต (Mock) · ข้อมูลจำลองสำหรับทดสอบ UI บน iPad 9 &amp; iPhone 13</p>
       </footer>

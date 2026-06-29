@@ -53,6 +53,43 @@ const PlukfanMock = (() => {
   const states = {};
   Object.values(ZONES).forEach((z) => { states[z.id] = freshState(z); });
 
+  // ── Gateway (ESP32-S3 "esp32s3-01") — คนละชนิด node กับ Pico W ──────────────
+  //   สะท้อน esp32s3_gateway.py / gateway_config.py:
+  //     - availability online/offline (retained + LWT)
+  //     - diagnostics sys/{freemem,uptime,rssi,temp} ทุก ~15s
+  //     - dual watchdog: Hardware WDT (8000ms) + Software WDT (heartbeat ราย task)
+  //     - กล้อง = stub (capture → not_implemented)
+  //     - cmd: ping → pong / reboot / capture
+  const GW = {
+    id: "esp32s3-01",
+    prefix: "plukfan",
+    hwWdtMs: 8000,                 // HW_WDT_MS
+    staleMqtt: 5000,               // HB_LIMIT_MS.mqtt
+    staleHealth: 3000,             // HB_LIMIT_MS.health
+    publishS: 15,                  // HEALTH_PUBLISH_S
+  };
+
+  function freshGateway() {
+    return {
+      id: GW.id,
+      online: false,
+      uptimeS: (Math.random() * 6000) | 0,
+      freemem: 180000 + ((Math.random() * 40000) | 0),  // ESP32-S3 มี RAM เยอะกว่า Pico W
+      rssi: -48 - ((Math.random() * 16) | 0),
+      temp: 41 + Math.random() * 4,        // อุณหภูมิชิป (°C)
+      hbMqttMs: 200,                       // อายุ heartbeat task mqtt (ms)
+      hbHealthMs: 150,                     // อายุ heartbeat task health (ms)
+      cameraReady: false,                  // stub — ยังไม่รองรับ
+      lastReset: "power_on",
+      lastDiagS: 0,                        // นับถอยหลังคาบ publish diagnostics
+      rebooting: false,
+      lastError: "",
+      updatedMs: Date.now(),
+    };
+  }
+
+  const gateway = freshGateway();
+
   // ── พารามิเตอร์จำลอง (เร่งเวลาเทียบ config จริงเพื่อให้เห็นผลเร็ว) ──
   const TICK_MS = 1200;            // คาบ simulation
   const DRY_RATE = 1.4;            // ความชื้นลดต่อ tick ตอนไม่รด (%)
@@ -171,18 +208,48 @@ const PlukfanMock = (() => {
     s.lastStopMs = Date.now();
   }
 
+  // ── หนึ่ง tick ของ gateway (diagnostics + watchdog heartbeat) ──
+  function stepGateway() {
+    const g = gateway;
+    const now = Date.now();
+    g.updatedMs = now;
+
+    if (g.rebooting) return;   // ระหว่าง reboot: เงียบ รอ timer ปลุกกลับ online
+
+    // ต่อเน็ตหลัง tick แรก (เลียนแบบ connect phase ของ firmware)
+    if (!g.online) { g.online = true; }
+
+    g.uptimeS += Math.round(TICK_MS / 1000);
+
+    // diagnostics ขยับเล็กน้อยให้ดูมีชีวิต
+    g.freemem += (Math.random() * 2400 - 1200) | 0;
+    g.freemem = Math.max(120000, Math.min(230000, g.freemem));
+    g.rssi = Math.max(-82, Math.min(-40, g.rssi + ((Math.random() * 4 - 2) | 0)));
+    g.temp = Math.max(35, Math.min(58, g.temp + (Math.random() * 0.6 - 0.3)));
+
+    // Software Watchdog: task สด → อายุ heartbeat ต่ำ (ตอกใหม่ทุกรอบ)
+    g.hbMqttMs = (Math.random() * 400) | 0;     // < staleMqtt (5000) = สด
+    g.hbHealthMs = (Math.random() * 300) | 0;   // < staleHealth (3000) = สด
+
+    // คาบ publish diagnostics (HEALTH_PUBLISH_S)
+    g.lastDiagS = (g.lastDiagS + Math.round(TICK_MS / 1000)) % GW.publishS;
+  }
+
   function tick() {
     if (!running) return;
     Object.values(ZONES).forEach(stepZone);
+    stepGateway();
     emit();
   }
 
   // ── public API ──
   return {
     ZONES,
+    GW,
     getZone: (id) => ZONES[id],
     getState: (id) => JSON.parse(JSON.stringify(states[id])),
     getAll:   () => JSON.parse(JSON.stringify(states)),
+    getGateway: () => JSON.parse(JSON.stringify(gateway)),
 
     onUpdate(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 
@@ -225,6 +292,41 @@ const PlukfanMock = (() => {
       s.moisture = Math.min(100, s.moisture + 12);
       setTimeout(() => { s.isRaining = false; emit(); }, 9000);
       emit();
+    },
+
+    // ── คำสั่งไปยัง gateway (plukfan/node/esp32s3-01/cmd) — จำลองการตอบกลับ ──
+    gatewayCmd(cmd) {
+      const g = gateway;
+      if (!g.online && cmd !== "reboot") {
+        return { ok: false, msg: "gateway ออฟไลน์ — ส่งคำสั่งไม่ได้" };
+      }
+      switch (cmd) {
+        case "ping": {
+          const rtt = 8 + ((Math.random() * 40) | 0);
+          return { ok: true, msg: `pong จาก ${g.id} (${rtt} ms)` };
+        }
+        case "capture":
+          // กล้องเป็น stub ใน firmware → ตอบ not_implemented
+          return { ok: false, msg: "capture → not_implemented (กล้องยังเป็น stub)" };
+        case "reboot": {
+          g.rebooting = true;
+          g.online = false;
+          g.lastError = "";
+          emit();
+          // จำลอง machine.reset() → ชิปบูตใหม่ → uptime=0 → กลับ online
+          setTimeout(() => {
+            g.rebooting = false;
+            g.uptimeS = 0;
+            g.lastReset = "software_reset";
+            g.online = true;
+            g.lastDiagS = 0;
+            emit();
+          }, 3000);
+          return { ok: true, msg: "ส่ง reboot แล้ว — gateway กำลังบูตใหม่…" };
+        }
+        default:
+          return { ok: false, msg: "คำสั่งไม่รู้จัก" };
+      }
     },
   };
 })();

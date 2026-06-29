@@ -300,6 +300,67 @@ body {
   border-radius: var(--radius-sm);
 }
 
+/* ───────────────────────── Gateway (ESP32-S3) ───────────────────────── */
+.gateway[data-state="online"]  { border-color: #38d27a55; }
+.gateway[data-state="offline"] { border-color: #f0646477; }
+.gateway[data-state="boot"]    { border-color: #f5b53d77; }
+
+.gateway__head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  margin-bottom: 16px;
+}
+.gateway__id  { font-size: 24px; font-weight: 800; letter-spacing: .3px; margin-top: 2px; }
+.gateway__sub { font-size: 12.5px; color: var(--text-mut); margin-top: 3px; }
+
+.gw-badge {
+  flex: 0 0 auto;
+  font-size: 12.5px; font-weight: 700;
+  padding: 6px 13px; border-radius: 999px;
+  white-space: nowrap;
+  color: var(--text-dim); background: #ffffff14;
+}
+.gw-badge--online  { color: #06160d; background: var(--green); box-shadow: 0 0 12px 1px #38d27a55; }
+.gw-badge--offline { color: #2a0808; background: var(--red); }
+.gw-badge--boot    { color: #2a1a00; background: var(--amber); }
+
+.gateway__diag { margin-bottom: 16px; }
+
+.gw-status { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; list-style: none; }
+.gw-stat {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.gw-stat__icon { font-size: 18px; }
+.gw-stat__name { font-size: 13px; color: var(--text-dim); flex: 1; min-width: 0; }
+.gw-stat__val  {
+  font-size: 12.5px; font-weight: 700;
+  padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+}
+.gw-stat__val.ok   { color: #06160d; background: var(--green); }
+.gw-stat__val.bad  { color: #2a0808; background: var(--red); }
+.gw-stat__val.idle { color: var(--text-dim); background: #ffffff14; }
+
+.gw-cmds { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.gw-cmd {
+  flex: 1 1 0; min-width: 96px; min-height: 48px;
+  font-size: 14.5px; font-weight: 700;
+  color: var(--text);
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform .08s, background .2s, filter .2s;
+}
+.gw-cmd:active { transform: scale(.96); background: var(--card); }
+.gw-cmd--warn { color: #2a1a00; background: linear-gradient(180deg, #f5c869, #e7a73a); border-color: transparent; }
+
+.gateway .diag__err {
+  color: #d9ecff; background: #4fb6f01f; border-color: #4fb6f055;
+}
+
 .foot { text-align: center; color: var(--text-mut); font-size: 12px; padding: 8px 0 4px; }
 
 /* ───────────────────────── Toast ───────────────────────── */
@@ -338,6 +399,9 @@ body {
   }
   .hero { grid-column: 1 / -1; }
   .grid { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); }
+  .gateway { grid-column: 1 / -1; }
+  .gateway__diag { grid-template-columns: repeat(3, 1fr); }
+  .gw-status { grid-template-columns: repeat(4, 1fr); }
   .brand__title { font-size: 22px; }
   .hero__state  { font-size: 34px; }
   .gauge__value { font-size: 52px; }
