@@ -159,6 +159,8 @@ body {
 .content {
   padding: 14px 18px calc(var(--sab) + 28px);
   display: grid;
+  /* base = 1 คอลัมน์ผูกกับความกว้างจอ (minmax(0,..) กัน track ขยายตาม max-content) */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--gap);
   max-width: 1180px;
   margin: 0 auto;
@@ -169,6 +171,7 @@ body {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 18px;
+  min-width: 0;            /* ให้การ์ดยุบได้ใน grid track (กันเนื้อหา nowrap ดันล้น) */
 }
 .card__eyebrow {
   font-size: 12px; letter-spacing: .6px; text-transform: uppercase;
@@ -271,7 +274,7 @@ body {
 .stat.is-stale b { color: var(--text-mut); }
 
 /* ───────────────────────── Guards ───────────────────────── */
-.guards__list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.guards__list { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .guard {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 14px;
@@ -280,8 +283,8 @@ body {
   border-radius: var(--radius-sm);
   list-style: none;
 }
-.guard__icon { font-size: 18px; }
-.guard__name { font-size: 13.5px; color: var(--text-dim); flex: 1; }
+.guard__icon { font-size: 18px; flex: 0 0 auto; }
+.guard__name { font-size: 13.5px; color: var(--text-dim); flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .guard__val  { font-size: 13.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
 .guard__val.ok   { color: #06160d; background: var(--green); }
 .guard__val.warn { color: #2a1a00; background: var(--amber); }
@@ -325,19 +328,26 @@ body {
 
 .gateway__diag { margin-bottom: 16px; }
 
-.gw-status { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; list-style: none; }
+.gw-status { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; list-style: none; }
 .gw-stat {
-  display: flex; align-items: center; gap: 10px;
+  /* icon+ชื่อ บรรทัดบน, pill ค่าสถานะบรรทัดล่าง (กัน pill ยาวเบียดชื่อจนตัดทีละตัวอักษร) */
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "icon name" "val val";
+  align-items: center; gap: 8px 10px;
   padding: 12px 14px;
+  min-width: 0;
   background: var(--card-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
 }
-.gw-stat__icon { font-size: 18px; }
-.gw-stat__name { font-size: 13px; color: var(--text-dim); flex: 1; min-width: 0; }
+.gw-stat__icon { grid-area: icon; font-size: 18px; }
+.gw-stat__name { grid-area: name; font-size: 13px; color: var(--text-dim); min-width: 0; }
 .gw-stat__val  {
+  grid-area: val; justify-self: start; max-width: 100%;
   font-size: 12.5px; font-weight: 700;
   padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
 }
 .gw-stat__val.ok   { color: #06160d; background: var(--green); }
 .gw-stat__val.bad  { color: #2a0808; background: var(--red); }
@@ -401,7 +411,6 @@ body {
   .grid { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); }
   .gateway { grid-column: 1 / -1; }
   .gateway__diag { grid-template-columns: repeat(3, 1fr); }
-  .gw-status { grid-template-columns: repeat(4, 1fr); }
   .brand__title { font-size: 22px; }
   .hero__state  { font-size: 34px; }
   .gauge__value { font-size: 52px; }
@@ -431,6 +440,8 @@ body {
   .brand__title { font-size: 17px; }
   .hero__state { font-size: 26px; }
   .conn__label { display: none; }   /* เหลือแต่จุดสถานะ ประหยัดพื้นที่ */
+  /* จอจิ๋ว: ยุบ grid 2 คอลัมน์เป็นคอลัมน์เดียว กันเนื้อหา nowrap ดันล้น */
+  .grid, .guards__list, .gw-status { grid-template-columns: 1fr; }
 }
 
 /* เคารพ reduce-motion ของผู้ใช้ iOS */
