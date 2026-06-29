@@ -303,6 +303,7 @@ body {
 .guard__val.idle { color: var(--text-dim); background: #ffffff14; }
 
 /* ───────────────────────── Diagnostics ───────────────────────── */
+.diag .card__eyebrow { text-align: center; }
 .diag__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; justify-items: center; }
 .diag__item { display: flex; flex-direction: column; gap: 3px; align-items: center; text-align: center; }
 .diag__item span { font-size: 12px; color: var(--text-mut); }
