@@ -107,7 +107,8 @@ class State:
         self.sensor_fault = False     # True = ค่าดิบเสีย → ห้าม map แล้วสั่งปั๊ม
 
         # --- สถานะ guard / safety ---
-        self.float_ok = False         # น้ำในถังพอไหม (อ่านจาก float switch)
+        self.float_ok = False         # น้ำในถังพอไหม (FSM อ่านสดทุกรอบ — writer เดียว)
+        self.float_fault_latch = False  # IRQ latch: float เด้งเป็น "ไม่ ok" ระหว่างรอบ FSM
         self.is_raining = False       # อนุมานฝนจาก moisture jump
         self.rain_until = 0           # ticks_ms ที่ flag ฝนจะหมดอายุ
         self.mqtt_connected = False   # สถานะการเชื่อมต่อ MQTT/WiFi
@@ -123,6 +124,7 @@ class State:
 
         # --- flag จาก callback / ปุ่ม (callback แค่ตั้ง flag ไม่สั่งปั๊ม) ---
         self.reset_requested = False  # ขอ manual reset (จาก MQTT หรือปุ่ม)
+        self.reset_from_button = False  # True = มาจากปุ่มกายภาพ (ข้าม guard mqtt ได้)
 
         # --- เวลา / ระบบ ---
         self.ntp_ok = False           # NTP sync สำเร็จไหม (มีผลแค่ schedule guard)
@@ -157,13 +159,15 @@ SYSTEM_CMD   = "{}/{}/system/cmd".format(cfg.TOPIC_PREFIX, cfg.ZONE)
 
 
 def _now_ts():
-    # timestamp สำหรับ payload — ใช้ wall-clock ถ้า NTP sync แล้ว ไม่งั้นใช้ ticks
+    # timestamp สำหรับ payload — epoch วินาที (wall-clock) เท่านั้น
+    # NTP ยังไม่ sync → คืน None (JSON null) ให้ backend ใช้เวลารับแทน
+    # *** ห้ามคืน ticks_ms ปน: คนละหน่วย/คนละฐาน backend แยกไม่ออก ***
     if st.ntp_ok:
         try:
             return time()
         except Exception:
             pass
-    return ticks_ms()
+    return None
 
 
 async def pub(topic, payload, retain=False, qos=0):
@@ -197,6 +201,21 @@ adc_soil = ADC(cfg.PIN_SOIL)
 adc_ph   = ADC(cfg.PIN_PH)
 adc_ec   = ADC(cfg.PIN_EC)
 float_sw = Pin(cfg.PIN_FLOAT_SWITCH, Pin.IN, Pin.PULL_UP)
+
+
+def _float_ok_now():
+    # อ่าน float switch สด ณ ตอนเรียก — dry-run protection ห้ามพึ่ง cache
+    return float_sw.value() == cfg.FLOAT_OK_LEVEL
+
+
+def _float_irq(pin):
+    # IRQ (soft) บนขา float: latch ทันทีที่น้ำหลุดระดับ ระหว่างรอรอบ FSM ถัดไป
+    # ISR ตั้ง flag อย่างเดียว — ห้ามแตะ actuator/publish (iron rule เดียวกับ callback)
+    if pin.value() != cfg.FLOAT_OK_LEVEL:
+        st.float_fault_latch = True
+
+
+float_sw.irq(handler=_float_irq, trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING)
 
 # I2C SHT31/BME280 — temp/humidity (telemetry); ครอบ try กัน bus ค้าง
 try:
@@ -255,14 +274,15 @@ def apply_ema(new_pct):
     return st.moisture_ema
 
 
-def read_temp_humid():
+async def read_temp_humid():
     # อ่าน SHT31 (0x44) — temp/humidity เป็น telemetry; คืน (temp, humid) หรือ (None, None)
     if i2c is None:
         return None, None
     try:
         # SHT31: คำสั่งวัดแม่นยำสูง (clock stretch off) = 0x2400
         i2c.writeto(cfg.SHT31_ADDR, b'\x24\x00')
-        # หน่วงให้เซนเซอร์วัดเสร็จ (จัดการนอกที่นี่ผ่าน caller ด้วย await)
+        # หน่วงรอเซนเซอร์วัดเสร็จ (~15 ms ที่ high repeatability) ก่อนอ่านผล
+        await asyncio.sleep_ms(20)
         data = i2c.readfrom(cfg.SHT31_ADDR, 6)
         raw_t = data[0] << 8 | data[1]
         raw_h = data[3] << 8 | data[4]
@@ -289,12 +309,11 @@ def detect_rain(new_pct):
 
 
 async def sensor_task():
-    # อ่านเซนเซอร์ + กรอง noise + ตรวจ float switch + ตรวจฝน
+    # อ่านเซนเซอร์ + กรอง noise + ตรวจฝน
+    # *** float switch ไม่อ่านที่นี่แล้ว — FSM อ่านสดเองทุกรอบ (500 ms) + มี IRQ latch
+    #     เพราะ cache คาบ 2 s ทำให้ dry-run protection ช้าเกิน (ต้อง instant) ***
     while True:
         try:
-            # --- float switch (อ่านทุกรอบ — guard สำคัญสุดของ safety) ---
-            st.float_ok = (float_sw.value() == cfg.FLOAT_OK_LEVEL)
-
             # --- soil moisture ---
             raw = read_soil_raw()
             if not raw_is_valid(raw):
@@ -311,7 +330,7 @@ async def sensor_task():
                 st.moisture = smoothed
 
             # --- temp/humidity (telemetry) ---
-            t, h = read_temp_humid()
+            t, h = await read_temp_humid()
             if t is not None:
                 st.temp, st.humid = t, h
 
@@ -383,7 +402,7 @@ async def _publish_pump_state(on):
 def try_manual_reset(skip_mqtt_guard=False):
     # ตรวจ guard 4 ข้อก่อนปลด ERROR. คืน (ok, reason)
     # (ปุ่มกายภาพข้ามได้เฉพาะ guard (3) mqtt_connected)
-    if not st.float_ok:
+    if not _float_ok_now():   # อ่านสด ไม่พึ่ง cache
         return False, "float ไม่ ok (น้ำในถังยังไม่พอ)"
     if not _moisture_usable():
         return False, "sensor ยังอ่านค่าไม่ปกติ"
@@ -420,6 +439,14 @@ async def irrigation_fsm_task():
             now = ticks_ms()
             state = st.fsm_state
 
+            # --- float switch: อ่านสดทุกรอบ + consume IRQ latch (FSM เป็น writer เดียว) ---
+            # latch จับกรณีน้ำหลุดระดับชั่วขณะระหว่างรอบ; เคลียร์เฉพาะเมื่อเห็นว่า set
+            # (ถ้า IRQ ยิงหลังอ่าน จะคงค้างไว้ให้รอบถัดไปเห็นแทน — ไม่มี event หาย)
+            latched = st.float_fault_latch
+            if latched:
+                st.float_fault_latch = False
+            st.float_ok = _float_ok_now() and not latched
+
             # --- safety overrides ก่อนทุกอย่าง (ยกเว้นตอน ERROR/INIT) ---
             # network loss / tank empty / sensor fault → ปั๊มหยุดทำงาน + ERROR
             if state in ("IDLE", "WATERING", "COOLDOWN"):
@@ -453,7 +480,9 @@ async def irrigation_fsm_task():
                         and elapsed_off >= cfg.MIN_OFF_S * 1000
                         and not _in_no_water_window()
                     )
-                    if ready:
+                    # re-read float สดอีกครั้งเป็นเงื่อนไขสุดท้ายก่อนสั่งปั๊ม
+                    # (กันเริ่มรดด้วยค่าที่เก่าแม้เพียงในรอบเดียวกัน)
+                    if ready and _float_ok_now():
                         await act.pump_run()      # ปั๊มทำงาน (เปิดวาล์ว→settle→ปั๊ม)
                         st.water_start = now
                         st.fsm_state = "WATERING"
@@ -509,10 +538,12 @@ async def irrigation_fsm_task():
                 if act.pump_is_on:
                     act.pump_stop()
 
-                # 1) มี manual reset request → ลองปลด (guard ครบ)
+                # 1) มี manual reset request → ลองปลด
+                #    (ปุ่มกายภาพข้ามได้เฉพาะ guard mqtt — flag reset_from_button)
                 if st.reset_requested:
-                    await _do_manual_reset(skip_mqtt_guard=False)
+                    await _do_manual_reset(skip_mqtt_guard=st.reset_from_button)
                     st.reset_requested = False   # เคลียร์ flag ทุกครั้งหลังประมวลผล
+                    st.reset_from_button = False
 
                 # 2) transient error (ไม่ critical): เหตุหายเอง → auto กลับ IDLE
                 elif not st.error_critical:
@@ -560,6 +591,9 @@ def on_message(topic, msg, retained):
                 data = {}
             if data.get("action") == "reset":
                 # แค่ตั้ง flag — ไม่เคลียร์ ERROR ใน callback
+                # reset ทาง MQTT ห้ามข้าม guard mqtt → เคลียร์ flag ปุ่มชัดเจน
+                # (กันกรณีปุ่มเพิ่งตั้ง flag ค้างในหน้าต่างเดียวกันแล้วถูกยืมสิทธิ์)
+                st.reset_from_button = False
                 st.reset_requested = True
                 print("[mqtt] รับคำสั่ง reset → ตั้ง flag")
     except Exception as e:
@@ -623,7 +657,9 @@ async def watchdog_task():
 
 # =============================================================================
 # ส่วนที่ 7: ปุ่มกายภาพ manual reset (fallback ตอนเน็ตล่ม)
-# debounce ~50ms + กดค้าง >2s ตอน ERROR → try_manual_reset (ข้ามเฉพาะ guard mqtt)
+# debounce ~50ms + กดค้าง >2s ตอน ERROR → ตั้ง flag ให้ FSM ประมวลผล
+# *** ปุ่มตั้ง flag เท่านั้น — irrigation_fsm_task เป็น task เดียวที่แตะ
+#     actuator/fsm_state (single-writer เหมือน MQTT reset) ***
 # =============================================================================
 reset_btn = Pin(cfg.PIN_RESET_BTN, Pin.IN, Pin.PULL_UP)
 
@@ -640,8 +676,9 @@ async def button_task():
                     pressed_since = ticks_ms()
                 held = ticks_diff(ticks_ms(), pressed_since)
                 if held >= cfg.BTN_HOLD_MS and st.fsm_state == "ERROR":
-                    print("[btn] กดค้างครบ → ลอง manual reset (ข้าม guard mqtt)")
-                    await _do_manual_reset(skip_mqtt_guard=True)
+                    print("[btn] กดค้างครบ → ตั้ง flag reset (ข้าม guard mqtt)")
+                    st.reset_from_button = True
+                    st.reset_requested = True
                     pressed_since = None
                     await asyncio.sleep_ms(500)  # กันเด้งซ้ำ
         else:
@@ -717,21 +754,26 @@ async def _wifi_connect():
 
 
 async def ntp_sync():
+    # *** ntptime.settime() เป็น blocking ล้วน (ไม่มี await ภายใน) — เอา
+    #     asyncio.wait_for_ms มาครอบจะ timeout ไม่ติดจริง เพราะ event loop
+    #     ถูก block จนกว่า syscall จะคืนค่า จึงต้องตัดที่ระดับ socket แทน:
+    #     ntptime ของ MicroPython มีตัวแปร module `timeout` (วินาที) ที่ถูกใช้
+    #     settimeout() บน UDP socket — เป็นจุดตัดที่ทำงานจริง
+    #     (จุดนี้รันก่อนเปิด Hardware WDT — ถ้าค้างไม่มีตัวกู้ ต้อง bound ในตัว;
+    #      ส่วน DNS/getaddrinfo มี timeout ภายในของ lwIP เอง — bound แต่ต้อง
+    #      ยืนยันบนฮาร์ดแวร์จริงว่าไม่เกินหลักวินาที)
     try:
         import ntptime
         ntptime.host = cfg.NTP_HOST
-        # ครอบ timeout กัน DNS/UDP ค้าง (blocking call)
-        await asyncio.wait_for_ms(_run_blocking(ntptime.settime), cfg.NTP_TIMEOUT_MS)
+        # ntptime รุ่นเก่ามากอาจไม่มี timeout — การตั้ง attribute ไม่ error
+        # แค่ไม่ถูกใช้ (behaviour เท่าของเดิม ไม่แย่ลง)
+        ntptime.timeout = max(1, cfg.NTP_TIMEOUT_MS // 1000)
+        ntptime.settime()
         st.ntp_ok = True
         print("[ntp] sync สำเร็จ")
     except Exception as e:
         st.ntp_ok = False
         print("[ntp] sync ล้มเหลว (ใช้ ticks ต่อ, auto mode ไม่กระทบ):", e)
-
-
-async def _run_blocking(fn):
-    # helper: ห่อ sync function ให้ await ได้ (รันทันที — ใช้คู่ wait_for_ms)
-    fn()
 
 
 # =============================================================================
