@@ -20,7 +20,7 @@ import json
 import machine
 from machine import Pin, ADC, I2C, WDT, reset_cause
 import uasyncio as asyncio
-from utime import ticks_ms, ticks_diff, time, localtime
+from utime import ticks_ms, ticks_diff, ticks_add, time, localtime
 
 import config as cfg
 
@@ -62,9 +62,12 @@ class Actuators:
         self.valve_sprink.value(_level(False))
         self._pump_on = False
 
-    def pump_run(self):
-        # สั่ง "ปั๊มทำงาน" — เปิดวาล์วน้ำหยดควบคู่ (โซนนี้รดแบบ drip เป็นหลัก)
+    async def pump_run(self):
+        # สั่ง "ปั๊มทำงาน" — เปิดวาล์วน้ำหยดก่อน (โซนนี้รดแบบ drip เป็นหลัก)
+        # แล้วหน่วงรอ valve settle ให้วาล์วเปิดจริงก่อนค่อยสั่งปั๊ม
+        # กัน dead-head (ปั๊มดันน้ำใส่วาล์วที่ยังไม่เปิด) — ห้ามเปิดสองขาพร้อมกัน
         self.valve_drip.value(_level(True))
+        await asyncio.sleep_ms(cfg.VALVE_SETTLE_MS)
         self.pump.value(_level(True))
         self._pump_on = True
 
@@ -276,7 +279,7 @@ def detect_rain(new_pct):
         jump = new_pct - st.prev_moisture
         if jump >= cfg.RAIN_JUMP_PCT:
             st.is_raining = True
-            st.rain_until = ticks_ms() + cfg.RAIN_HOLD_S * 1000
+            st.rain_until = ticks_add(now, cfg.RAIN_HOLD_S * 1000)
             print("[rain] ตรวจพบความชื้นเด้งขึ้น {:.1f}% → ตั้ง flag ฝนตก".format(jump))
     # หมดอายุ flag ฝน
     if st.is_raining and ticks_diff(now, st.rain_until) >= 0:
@@ -449,7 +452,7 @@ async def irrigation_fsm_task():
                         and not _in_no_water_window()
                     )
                     if ready:
-                        act.pump_run()            # ปั๊มทำงาน
+                        await act.pump_run()      # ปั๊มทำงาน (เปิดวาล์ว→settle→ปั๊ม)
                         st.water_start = now
                         st.fsm_state = "WATERING"
                         print("[fsm] IDLE→WATERING: ปั๊มทำงาน (moist={:.1f}<{})".format(
