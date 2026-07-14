@@ -67,10 +67,17 @@ class Actuators:
         # สั่ง "ปั๊มทำงาน" — เปิดวาล์วน้ำหยดก่อน (โซนนี้รดแบบ drip เป็นหลัก)
         # แล้วหน่วงรอ valve settle ให้วาล์วเปิดจริงก่อนค่อยสั่งปั๊ม
         # กัน dead-head (ปั๊มดันน้ำใส่วาล์วที่ยังไม่เปิด) — ห้ามเปิดสองขาพร้อมกัน
+        # คืน True = ปั๊มทำงานแล้ว / False = ยกเลิก (น้ำหลุดระดับระหว่าง settle)
         self.valve_drip.value(_level(True))
         await asyncio.sleep_ms(cfg.VALVE_SETTLE_MS)
+        # น้ำอาจหลุดระดับระหว่างรอ settle — เช็คสดอีกครั้งก่อนจ่ายไฟปั๊ม
+        # ปิดหน้าต่าง dry-run ช่วง settle (ไม่งั้นปั๊มเดินแห้งได้ ~1s จนรอบ FSM ถัดไป)
+        if not _float_ok_now():
+            self.valve_drip.value(_level(False))
+            return False
         self.pump.value(_level(True))
         self._pump_on = True
+        return True
 
     def pump_stop(self):
         # สั่ง "ปั๊มหยุดทำงาน" — ปิดปั๊มก่อน แล้วค่อยปิดวาล์ว
@@ -483,12 +490,16 @@ async def irrigation_fsm_task():
                     # re-read float สดอีกครั้งเป็นเงื่อนไขสุดท้ายก่อนสั่งปั๊ม
                     # (กันเริ่มรดด้วยค่าที่เก่าแม้เพียงในรอบเดียวกัน)
                     if ready and _float_ok_now():
-                        await act.pump_run()      # ปั๊มทำงาน (เปิดวาล์ว→settle→ปั๊ม)
-                        st.water_start = now
-                        st.fsm_state = "WATERING"
-                        print("[fsm] IDLE→WATERING: ปั๊มทำงาน (moist={:.1f}<{})".format(
-                            st.moisture, th["low"]))
-                        await _publish_pump_state(True)
+                        # pump_run เช็ค float ซ้ำหลัง valve settle — False = ยกเลิก
+                        # (คง IDLE ไว้ รอบถัดไปเงื่อนไข float_ok จะกันเองจนน้ำกลับมา)
+                        if await act.pump_run():
+                            st.water_start = now
+                            st.fsm_state = "WATERING"
+                            print("[fsm] IDLE→WATERING: ปั๊มทำงาน (moist={:.1f}<{})".format(
+                                st.moisture, th["low"]))
+                            await _publish_pump_state(True)
+                        else:
+                            print("[fsm] ยกเลิกเริ่มรด: float หลุดระดับระหว่าง valve settle")
 
             # ---------------- WATERING ----------------
             elif state == "WATERING":
