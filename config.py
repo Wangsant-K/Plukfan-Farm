@@ -74,7 +74,11 @@ MQTT_KEEPALIVE_S = 30                   # keepalive (วินาที) — ใ
 # *** แนะนำให้ตั้งค่า cert จริงเพื่อ verify ตัว broker ***
 MQTT_SSL_CA   = _secret("MQTT_SSL_CA", None)
 
-# connect timeout: ถ้า WiFi/MQTT connect (รวม TLS handshake) นานเกินนี้
+# WiFi association timeout (ก่อน NTP/TLS ใดๆ) — แยกจาก MQTT/TLS timeout
+# เพราะเป็นคนละ failure domain (เน็ตหาไม่เจอ vs broker/TLS มีปัญหา)
+WIFI_CONNECT_TIMEOUT_MS = 6000          # *** ปรับได้ ***
+
+# connect timeout: ถ้า MQTT connect (รวม TLS handshake) นานเกินนี้
 # = เน็ตมีปัญหาจริง → ปล่อยให้ Hardware WDT reset เป็นพฤติกรรมที่ถูก
 MQTT_CONNECT_TIMEOUT_MS = 6000          # *** ปรับได้ ***
 

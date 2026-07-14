@@ -18,6 +18,7 @@ import sys
 import gc
 import json
 import machine
+import network
 from machine import Pin, ADC, I2C, WDT, reset_cause
 import uasyncio as asyncio
 from utime import ticks_ms, ticks_diff, ticks_add, time, localtime
@@ -695,7 +696,26 @@ async def gc_task():
 
 # =============================================================================
 # ส่วนที่ 9: NTP (best-effort — NTP fail ต้องไม่ทำให้ auto mode ล่ม)
+# *** ต้อง sync ก่อน TLS handshake แรกเสมอ (I24): Pico W ไม่มี battery-backed RTC
+#     บูตมาเวลาเริ่มที่ default (~ปี 2021) ถ้า broker ตรวจ cert validity period
+#     ด้วยนาฬิกาที่ยังไม่ sync อาจทำให้ TLS handshake fail ผิดปกติ ***
 # =============================================================================
+async def _wifi_connect():
+    # ต่อ WiFi ล้วน ๆ (ไม่มี TLS) ให้ขึ้นก่อน เพื่อเปิดทางให้ NTP sync (UDP)
+    # ได้ก่อน mqtt_as ทำ TLS handshake (I24)
+    # *** หมายเหตุ: mqtt_as (lib ภายนอก ไม่ได้ vendor ในนี้) อาจ re-associate WiFi
+    #     ซ้ำตอน client.connect() แม้ isconnected() แล้ว — ยังไม่ยืนยันจาก source
+    #     จริง ต้อง bench-test ว่า (re-assoc + TLS) รวมกันยังอยู่ใต้
+    #     MQTT_CONNECT_TIMEOUT_MS ไม่งั้นเสี่ยง reset วนตอนเน็ตช้า ***
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        wlan.connect(cfg.WIFI_SSID, cfg.WIFI_PASS)
+        while not wlan.isconnected():
+            await asyncio.sleep_ms(100)
+    return wlan
+
+
 async def ntp_sync():
     try:
         import ntptime
@@ -755,6 +775,15 @@ async def main():
     # ตั้ง global exception handler ให้ event loop
     asyncio.get_event_loop().set_exception_handler(_exception_handler)
 
+    # --- WiFi ก่อน (ไม่มี TLS) แล้ว NTP sync ก่อน TLS handshake แรกเสมอ (I24) ---
+    try:
+        await asyncio.wait_for_ms(_wifi_connect(), cfg.WIFI_CONNECT_TIMEOUT_MS)
+    except Exception as e:
+        print("[wifi] connect ล้มเหลว/timeout:", e)
+        await asyncio.sleep_ms(2000)
+        machine.reset()
+    await ntp_sync()
+
     # --- ตั้งค่า mqtt_as ---
     if MQTTClient is not None:
         mqtt_base["client_id"] = cfg.NODE_ID
@@ -793,9 +822,6 @@ async def main():
             # connect ไม่ได้ → reset เพื่อเริ่มใหม่ (mqtt_as backoff จัดการรอบถัดไป)
             await asyncio.sleep_ms(2000)
             machine.reset()
-
-    # --- NTP (best-effort, หลัง WiFi ขึ้นแล้ว) ---
-    await ntp_sync()
 
     # --- publish ข้อมูลบูต ---
     await pub(t_sys("last_reset"), {"v": st.last_reset_cause, "ts": _now_ts()}, retain=True)
