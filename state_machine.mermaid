@@ -1,0 +1,44 @@
+%% =============================================================================
+%% Irrigation FSM — node "สวนปลูกฝัน" (plukfan)
+%% 5 สถานะ: INIT → IDLE → WATERING → COOLDOWN → ERROR
+%% ปั๊มทำงานเฉพาะ WATERING เท่านั้น (safe-by-structure)
+%% task irrigation_fsm_task() = task เดียวที่สั่ง actuator
+%% =============================================================================
+stateDiagram-v2
+    [*] --> INIT
+
+    INIT --> IDLE: act.pump_stop() เสร็จ
+
+    IDLE --> WATERING: moisture_usable<br/>&& moisture < LOW<br/>&& !is_raining && float_ok<br/>&& off ≥ COOLDOWN_S<br/>&& off ≥ MIN_OFF_S<br/>&& !no_water_window<br/>→ pump_run() (ปั๊มทำงาน)<br/>re-check float สดหลัง valve settle<br/>ไม่ผ่าน = ยกเลิก คง IDLE
+
+    WATERING --> COOLDOWN: moisture ≥ HIGH<br/>(รดสำเร็จ, reset timeout)<br/>→ ปั๊มหยุดทำงาน
+    WATERING --> COOLDOWN: run_time ≥ MAX_RUN_S<br/>(timeout #n < MAX)<br/>→ ปั๊มหยุดทำงาน
+    WATERING --> ERROR: timeout วนซ้ำ ≥ PUMP_TIMEOUT_MAX<br/>(critical — ล็อก)
+    WATERING --> ERROR: sensor_fault ระหว่างรด
+
+    COOLDOWN --> IDLE: ครบ COOLDOWN_S
+
+    IDLE --> ERROR: safety override
+    WATERING --> ERROR: safety override
+    COOLDOWN --> ERROR: safety override
+
+    ERROR --> IDLE: manual reset ผ่าน guard<br/>(MQTT/ปุ่ม)
+    ERROR --> IDLE: transient recover<br/>(mqtt_ok && float_ok && sensor_ok)
+
+    note right of ERROR
+        ปั๊มหยุดทำงานเสมอ
+        critical = รอ manual reset เท่านั้น
+        ปุ่มกายภาพ: ข้าม guard mqtt ได้
+    end note
+
+    note left of IDLE
+        safety override (เช็คทุกรอบ ก่อน logic):
+        !mqtt_connected → ERROR network_loss
+        !float_ok       → ERROR tank_empty
+        sensor_fault    → ERROR sensor_fault
+    end note
+
+    note right of INIT
+        ก่อนเข้า loop: actuator = SAFE
+        (default off ตอนบูต — fail-safe ชั้น 1)
+    end note

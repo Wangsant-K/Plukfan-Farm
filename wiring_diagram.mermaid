@@ -1,0 +1,66 @@
+%% =============================================================================
+%% Wiring Diagram — node "สวนปลูกฝัน" (plukfan) บน Raspberry Pi Pico W (RP2040)
+%% relay = active-LOW + external pull-up | sensor pull-up = ภายในชิป
+%% =============================================================================
+graph LR
+    subgraph PICO["Raspberry Pi Pico W (RP2040)"]
+        GP26["GP26 / ADC0"]
+        GP27["GP27 / ADC1"]
+        GP28["GP28 / ADC2"]
+        GP2["GP2  (I2C1 SDA)"]
+        GP3["GP3  (I2C1 SCL)"]
+        GP15["GP15 (IN, pull-up)"]
+        GP16["GP16 (OUT)"]
+        GP17["GP17 (OUT)"]
+        GP18["GP18 (OUT)"]
+        GP14["GP14 (IN, pull-up)"]
+        V3["3V3 OUT"]
+        GND["GND"]
+    end
+
+    %% --- Sensors (analog) ---
+    SOIL["Soil Moisture<br/>(capacitive) — control"]
+    PH["pH sensor<br/>(telemetry)"]
+    EC["EC sensor<br/>(telemetry)"]
+    SHT["SHT31 / BME280<br/>temp + humid (I2C)"]
+
+    GP26 --- SOIL
+    GP27 --- PH
+    GP28 --- EC
+    GP2  --- SHT
+    GP3  --- SHT
+
+    %% --- Digital inputs ---
+    FLOAT["Float switch<br/>(น้ำในถัง) FLOAT_OK=0"]
+    BTN["ปุ่ม manual reset<br/>กดลง GND"]
+
+    GP15 --- FLOAT
+    GP14 --- BTN
+
+    %% --- Actuators via relay board (active-LOW) ---
+    subgraph RELAY["Relay board (active-LOW, external pull-up)"]
+        RLY_P["CH1 → ปั๊ม"]
+        RLY_D["CH2 → วาล์วน้ำหยด"]
+        RLY_S["CH3 → วาล์วสปริงเกอร์"]
+    end
+
+    GP16 -->|"0=ทำงาน 1=หยุด(SAFE)"| RLY_P
+    GP17 -->|active-LOW| RLY_D
+    GP18 -->|active-LOW| RLY_S
+
+    %% --- Loads behind relay (แยกไฟเลี้ยง ไม่ใช้ไฟ Pico) ---
+    PUMP(["ปั๊มน้ำ 12/24V"])
+    VDRIP(["วาล์วน้ำหยด"])
+    VSPRINK(["วาล์วสปริงเกอร์"])
+    RLY_P --> PUMP
+    RLY_D --> VDRIP
+    RLY_S --> VSPRINK
+
+    %% --- Power / GND ---
+    V3 --- SHT
+    V3 --- SOIL
+    GND --- SOIL
+    GND --- SHT
+    GND --- FLOAT
+    GND --- BTN
+    GND --- RELAY
